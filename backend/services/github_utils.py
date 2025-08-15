@@ -2,11 +2,11 @@ import json
 
 import requests
 
-def read_token(file_path):
+def _read_token(file_path):
     with open(file_path, 'r') as f:
         return f.read().strip()
 
-def github_login(token):
+def _github_login(token):
     url = 'https://api.github.com/user'
     headers = {'Authorization': f'token {token}'}
     response = requests.get(url, headers=headers)
@@ -28,27 +28,7 @@ def get_repos(token):
         return []
     return response.json()
 
-def get_latest_commit(token, owner, repo_name):
-    url_commits = f"https://api.github.com/repos/{owner}/{repo_name}/commits"
-    headers = {'Authorization': f'token {token}'}
-    response = requests.get(url_commits, headers=headers, params={'per_page': 1})
-    if response.status_code == 200 and response.json():
-        commit = response.json()[0]
-        msg = commit['commit']['message']
-        date = commit['commit']['committer']['date']
-        sha = commit['sha']
-        # Get commit details for file changes
-        url_commit_details = f"https://api.github.com/repos/{owner}/{repo_name}/commits/{sha}"
-        details_resp = requests.get(url_commit_details, headers=headers)
-        files = []
-        if details_resp.status_code == 200:
-            details = details_resp.json()
-            files = details.get('files', [])
-        return date, msg, sha, files
-    else:
-        return None, None, None, []
-
-def build_commit_data(name, date, msg, sha, files):
+def _build_commit_data(name, date, msg, sha, files):
     import re
     commit_data = {
         'repo': name,
@@ -125,25 +105,8 @@ def build_commit_data(name, date, msg, sha, files):
             commit_data['files'].append(file_info)
     return commit_data
 
-def show_latest_commits(token):
-    repos = get_repos(token)
-    if not repos:
-        print("No repositories found.")
-        return
 
-    commits_info = []
-
-    # First: collect all info
-    for repo in repos:
-        name = repo['name']
-        owner = repo['owner']['login']
-        date, msg, sha, files = get_latest_commit(token, owner, name)
-        commit_data = build_commit_data(name, date, msg, sha, files)
-        commits_info.append(commit_data)
-
-    return commits_info
-
-def get_commits_range(token, owner, repo_name, start, end):
+def _get_commits_range(token, owner, repo_name, start, end):
     """
     Returns a list of commits from index start to end (inclusive, zero-based, counting from the latest commit).
     start=0 means the latest commit, end=1 means the second latest, etc.
@@ -161,8 +124,8 @@ def get_commits_range(token, owner, repo_name, start, end):
     else:
         return []
 
-def show_commits_range(token, owner, repo_name, start, end):
-    commits = get_commits_range(token, owner, repo_name, start, end)
+def get_commits_range(token, owner, repo_name, start, end):
+    commits = _get_commits_range(token, owner, repo_name, start, end)
     commits_info = []
     for commit in commits:
         msg = commit['commit']['message']
@@ -176,16 +139,9 @@ def show_commits_range(token, owner, repo_name, start, end):
         if details_resp.status_code == 200:
             details = details_resp.json()
             files = details.get('files', [])
-        commit_data = build_commit_data(repo_name, date, msg, sha, files)
+        commit_data = _build_commit_data(repo_name, date, msg, sha, files)
         commits_info.append(commit_data)
     return commits_info
-
-if __name__ == "__main__":
-    token = read_token('github_token.txt')
-    github_login(token)
-    print("\nLatest commits for repositories:")
-    show_latest_commits(token)
-
 
 
 
